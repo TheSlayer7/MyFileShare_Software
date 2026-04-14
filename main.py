@@ -205,11 +205,11 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
 
     def pause_transfer(self):
         self.pause_transfer_flag.set()
-        self.log_warn("Transfer paused by user. Resume with 'Resume Transfer' prompt on receiver.")
+        self.log_warn("Transfer paused. Partial file saved; reconnect to resume.")
 
     def cancel_transfer(self):
         self.cancel_transfer_flag.set()
-        self.log_error("Transfer cancelled by user. Partial file deleted.")
+        self.log_warn("Cancelling transfer...")
 
     def update_peer_list(self):
         if self.shutdown_flag.is_set(): return
@@ -468,10 +468,16 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
             self.after(0, self.log, f"Receiving {f_name} from {s_name} (Starting at {offset/1e6:.1f}MB)...")
             self.after(0, lambda: self.pause_btn.configure(state="normal"))
             self.after(0, lambda: self.cancel_btn.configure(state="normal"))
-            
+
+            # Clear any stale control flags from a previous transfer.
+            self.cancel_transfer_flag.clear()
+            self.pause_transfer_flag.clear()
+
             with open(part_file, mode) as f:
                 rec, start_time = offset, time.time()
                 while rec < f_size and not self.shutdown_flag.is_set():
+                    if self.cancel_transfer_flag.is_set() or self.pause_transfer_flag.is_set():
+                        break
                     data = conn.recv(min(8192, f_size - rec))
                     if not data: break 
                     
@@ -489,6 +495,14 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
             self.after(0, lambda: self.cancel_btn.configure(state="disabled"))
 
             if self.shutdown_flag.is_set(): return
+
+            if self.cancel_transfer_flag.is_set():
+                self.after(0, self.log_error, "Transfer cancelled by user. Partial file deleted.")
+                try:
+                    os.remove(part_file)
+                except OSError:
+                    pass
+                return
 
             if rec < f_size:
                 self.after(0, self.log_warn, "Transfer paused or connection dropped. Partial data kept for resume.")
