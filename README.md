@@ -172,7 +172,7 @@ This tool is designed for convenience on **trusted local networks**. Transfers a
 | [customtkinter](https://github.com/TomSchimansky/CustomTkinter) | ≥ 5.2.0 | [MIT](https://github.com/TomSchimansky/CustomTkinter/blob/master/LICENSE) | [GitHub](https://github.com/TomSchimansky/CustomTkinter) |
 | [tkinterdnd2](https://github.com/pmgagne/tkinterdnd2) | ≥ 0.3.0 | [MIT](https://github.com/pmgagne/tkinterdnd2/blob/master/LICENSE) | [GitHub](https://github.com/pmgagne/tkinterdnd2) |
 | [cryptography](https://cryptography.io) | ≥ 41.0.0 | [Apache 2.0 / BSD](https://github.com/pyca/cryptography/blob/main/LICENSE) | [GitHub](https://github.com/pyca/cryptography) |
-| [pystray](https://github.com/moses-palmer/pystray) | ≥ 0.19.0 | [LGPLv3](https://github.com/moses-palmer/pystray/blob/master/COPYING) | [GitHub](https://github.com/moses-palmer/pystray) |
+| [pystray](https://github.com/moses-palmer/pystray) | ≥ 0.19.0 | [LGPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html) | [GitHub](https://github.com/moses-palmer/pystray) |
 | [plyer](https://github.com/kivy/plyer) | ≥ 2.1.0 | [MIT](https://github.com/kivy/plyer/blob/master/LICENSE) | [GitHub](https://github.com/kivy/plyer) |
 | [Pillow](https://python-pillow.org/) | ≥ 10.0.0 | [HPND](https://github.com/python-pillow/Pillow/blob/main/LICENSE) | [GitHub](https://github.com/python-pillow/Pillow) |
 
