@@ -381,7 +381,7 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
             kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=480000)
             key = kdf.derive(self.my_session_pin.encode())
 
-            client_auth = conn.recv(32)
+            client_auth = self.recv_exact(conn, 32)
             expected_auth = hmac.new(key, b"AUTH_CHALLENGE", hashlib.sha256).digest()
             if not hmac.compare_digest(client_auth, expected_auth):
                 attempts = self.failed_attempts.get(ip, (0, 0))[0] + 1
@@ -424,7 +424,7 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
             if offset > 0: conn.sendall(f"RESUME|{offset}".encode())
             else: conn.sendall(b"START|0")
 
-            nonce = conn.recv(16)
+            nonce = self.recv_exact(conn, 16)
             if len(nonce) != 16:
                 self.after(0, self.log_error, f"Invalid nonce received from {s_name} ({ip}).")
                 return
@@ -459,7 +459,6 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
                 self.after(0, self.log_warn, "Transfer paused or connection dropped. Partial data kept for resume.")
                 return
 
-            # UPDATED SECURITY CHECK
             sender_mac = self.recv_exact(conn, 32)
             if not sender_mac or not hmac.compare_digest(stream_mac.digest(), sender_mac):
                 self.after(0, self.log_error, "SECURITY ALERT: Stream MAC mismatch. Transfer dropped as unsafe.")
@@ -618,7 +617,6 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
                     speed = ((sent - offset) / 1e6) / elapsed
                     self.after(0, self.update_ui_progress, pct, f"Speed: {speed:.2f} MB/s")
 
-                # UPDATED CLOSING LOGIC
                 if not self.cancel_transfer_flag.is_set() and not self.shutdown_flag.is_set():
                     final_chunk = enc.finalize()
                     if final_chunk:
@@ -626,7 +624,6 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
                         client.sendall(final_chunk)
                     client.sendall(stream_mac.digest())
                     
-                    # Wait for the receiver's thumbs up before closing the socket
                     try:
                         ack = self.recv_exact(client, 4)
                         if ack == b"DONE":
