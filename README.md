@@ -23,12 +23,15 @@ A lightweight, encrypted peer-to-peer LAN file sharing desktop app built in Pyth
 - 🔒 **AES-256-CTR encryption** — all file data is encrypted before leaving your machine
 - 🔑 **PBKDF2 key derivation** — the session token is never sent over the network
 - ✅ **SHA-256 integrity verification** — detects corruption or tampering post-transfer
+- 🧪 **Stream MAC verification** — encrypted stream is authenticated before finalizing a transfer
 - 📡 **UDP device discovery** — automatically scan your LAN to find other users
 - 📂 **Folder support** — folders are zipped, sent encrypted, and unpacked on arrival
 - 🖱️ **Drag & Drop** — drag files directly into the app window
 - 🔔 **System tray** — minimize to tray and keep listening for incoming files
 - 🌗 **Dark / Light / System theme** — switchable at any time
+- 🎨 **Improved Light mode contrast** — cleaner cards, better text contrast, and clearer token display
 - 📊 **Live progress & speed meter** — real-time transfer speed displayed in MB/s
+- 🧾 **Clear transfer logs** — `[INFO]`, `[WARN]`, and `[ERROR]` entries with actionable messages
 
 ---
 
@@ -120,10 +123,26 @@ python3 main.py
 
 1. Make sure the receiving device has the app open and is on the **same Wi-Fi or local network**.
 2. Under the **SEND TO ANOTHER DEVICE** section:
-   - Click the **Scan** button to auto-detect the receiver's IP address, or type it in manually.
+   - Select a discovered or saved receiver IP address, or type one manually.
    - Enter the receiver's **6-Character Token** — ask them to read it off their screen.
 3. **Drag and drop** a file or folder into the drop zone, or click **Select File/Folder Manually**.
 4. The transfer will begin automatically as soon as the receiver accepts the prompt.
+
+---
+
+## 🧭 Logging and Status Messages
+
+The app now logs transfer state with explicit severity markers:
+
+- `[INFO]` for normal connection/progress/completion updates
+- `[WARN]` for recoverable issues (timeouts, pause, user reject, temporary lockouts)
+- `[ERROR]` for integrity or protocol failures (auth failure, malformed response, hash mismatch)
+
+Common reject reasons now include details, for example:
+
+- recipient declined the transfer
+- recipient temporarily locked after multiple failed token attempts
+- recipient rejected malformed metadata
 
 ---
 
@@ -142,6 +161,15 @@ The **session token is never transmitted over the network**. Both sides independ
 ---
 
 ## ⚠️ Troubleshooting & Limitations
+
+### 🚨 "Stream MAC mismatch" / Security Alert
+This means the encrypted stream integrity check failed, and the receiver intentionally dropped the transfer.
+
+Try the following:
+- Retry the transfer once (temporary network interruptions can break a stream)
+- Ensure both devices are running the latest version of this app
+- Verify the receiver token is correct
+- Avoid unstable or heavily filtered networks
 
 ### 🔥 Firewall Prompts
 The first time you run this app, **Windows Defender** or your OS firewall may ask for network permissions. You **must allow access on private networks** for the app to send and receive files.
