@@ -58,9 +58,27 @@ cd YOUR_REPO_NAME
 
 ---
 
-### Step 2 — Create a virtual environment (Recommended)
+### Step 2 — Install Dependencies with `uv` (Fastest)
 
-A virtual environment keeps this project's dependencies isolated from your system Python installation and prevents version conflicts.
+If you have `uv` installed, it's the fastest way to set up the project:
+
+```bash
+uv venv
+uv pip install customtkinter tkinterdnd2 cryptography pystray Pillow plyer
+```
+
+Or using the requirements file:
+
+```bash
+uv venv
+uv pip install -r requirements.txt
+```
+
+---
+
+### Step 2b — Create a virtual environment with pip (Alternative)
+
+If you prefer traditional `venv` and `pip`:
 
 **Windows:**
 ```bash
@@ -76,23 +94,26 @@ source venv/bin/activate
 
 You should see `(venv)` appear at the start of your terminal prompt confirming it is active.
 
----
-
-### Step 3 — Install dependencies
-
+Then install:
 ```bash
 pip install customtkinter tkinterdnd2 cryptography pystray Pillow plyer
 ```
 
-Or install from the requirements file:
-
+Or from the requirements file:
 ```bash
 pip install -r requirements.txt
 ```
 
 ---
 
-### Step 4 — Run the app
+### Step 3 — Run the App
+
+**With `uv`:**
+```bash
+uv run main.py
+```
+
+**Without `uv` (after activating venv):**
 
 **Windows:**
 ```bash
@@ -103,6 +124,8 @@ python main.py
 ```bash
 python3 main.py
 ```
+
+The app window will open with **Dark mode enabled by default**. You can switch to Light or System theme using the buttons at the top.
 
 > 💡 **Tip:** Launch the app on **two devices connected to the same Wi-Fi or LAN network** to transfer files between them. It will not work over the internet.
 

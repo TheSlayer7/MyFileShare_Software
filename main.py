@@ -40,6 +40,7 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
         
         self.shutdown_flag = threading.Event()
         self.cancel_transfer_flag = threading.Event()
+        self.pause_transfer_flag = threading.Event()
         
         alphabet = string.ascii_uppercase + string.digits
         self.my_session_pin = ''.join(secrets.choice(alphabet) for _ in range(6))
@@ -138,8 +139,12 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
         self.speed_label = ctk.CTkLabel(self, text="Speed: 0.00 MB/s", font=("Arial", 12))
         self.speed_label.pack(pady=0)
         
-        self.cancel_btn = ctk.CTkButton(self, text="Pause / Cancel Transfer", fg_color="#555555", hover_color="#8B0000", height=24, width=150, state="disabled", command=self.cancel_transfer)
-        self.cancel_btn.pack(pady=5)
+        self.transfer_btns_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.transfer_btns_frame.pack(pady=5)
+        self.pause_btn = ctk.CTkButton(self.transfer_btns_frame, text="Pause Transfer", fg_color="#4A6FA5", hover_color="#2E5090", height=24, width=110, state="disabled", command=self.pause_transfer)
+        self.pause_btn.pack(side="left", padx=3)
+        self.cancel_btn = ctk.CTkButton(self.transfer_btns_frame, text="Cancel Transfer", fg_color="#8B0000", hover_color="#FF0000", height=24, width=110, state="disabled", command=self.cancel_transfer)
+        self.cancel_btn.pack(side="left", padx=3)
 
         self.log_box = ctk.CTkTextbox(self, height=90, state="disabled")
         self.log_box.pack(pady=10, padx=20, fill="x")
@@ -197,9 +202,13 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
             self.speed_label.configure(text_color=["gray20", "gray90"])
             self.dir_label.configure(text_color="gray")
 
+    def pause_transfer(self):
+        self.pause_transfer_flag.set()
+        self.log_warn("Transfer paused by user. Resume with 'Resume Transfer' prompt on receiver.")
+
     def cancel_transfer(self):
         self.cancel_transfer_flag.set()
-        self.log("Interrupting transfer...")
+        self.log_error("Transfer cancelled by user. Partial file deleted.")
 
     def update_peer_list(self):
         if self.shutdown_flag.is_set(): return
@@ -456,6 +465,7 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
             
             mode = "ab" if offset > 0 else "wb"
             self.after(0, self.log, f"Receiving {f_name} from {s_name} (Starting at {offset/1e6:.1f}MB)...")
+            self.after(0, lambda: self.pause_btn.configure(state="normal"))
             self.after(0, lambda: self.cancel_btn.configure(state="normal"))
             
             with open(part_file, mode) as f:
@@ -474,6 +484,7 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
                     self.after(0, self.update_ui_progress, pct, f"Speed: {speed:.2f} MB/s")
 
             self.after(0, self.update_ui_progress, 0, "Speed: 0.00 MB/s")
+            self.after(0, lambda: self.pause_btn.configure(state="disabled"))
             self.after(0, lambda: self.cancel_btn.configure(state="disabled"))
 
             if self.shutdown_flag.is_set(): return
@@ -566,6 +577,8 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
 
     def send_logic(self, file_path, target_ip, target_pin, is_batch=False):
         self.cancel_transfer_flag.clear()
+        self.pause_transfer_flag.clear()
+        self.after(0, lambda: self.pause_btn.configure(state="normal"))
         self.after(0, lambda: self.cancel_btn.configure(state="normal"))
         
         is_f = "1" if is_batch else "0"
@@ -643,8 +656,11 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
                 f.seek(offset)
                 sent, start = offset, time.time()
                 while chunk := f.read(8192):
+                    if self.pause_transfer_flag.is_set():
+                        self.after(0, self.log_warn, "Transfer paused. Resuming on next request...")
+                        break
                     if self.cancel_transfer_flag.is_set() or self.shutdown_flag.is_set():
-                        self.after(0, self.log_warn, "Transfer paused by user.")
+                        self.after(0, self.log_error, "Transfer cancelled. Discarding partial file.")
                         break
                         
                     enc_chunk = enc.update(chunk)
@@ -684,9 +700,13 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
             if 'client' in locals():
                 client.close()
             self.after(0, self.update_ui_progress, 0, "Speed: 0.00 MB/s")
+            self.after(0, lambda: self.pause_btn.configure(state="disabled"))
             self.after(0, lambda: self.cancel_btn.configure(state="disabled"))
-            if is_f == "1" and os.path.exists(send_path):
-                os.remove(send_path)
+            if self.cancel_transfer_flag.is_set() and is_f == "1" and os.path.exists(send_path):
+                try:
+                    os.remove(send_path)
+                except OSError:
+                    pass
 
 if __name__ == "__main__":
     app = MyFileSharingApp()
