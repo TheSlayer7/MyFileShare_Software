@@ -31,6 +31,7 @@ SOCKET_TIMEOUT = 20
 
 class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
     def __init__(self):
+        ctk.set_appearance_mode("Dark")
         super().__init__()
         self.TkdndVersion = TkinterDnD._require(self)
 
@@ -164,7 +165,7 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
 
     def on_appearance_change(self, mode):
         ctk.set_appearance_mode(mode)
-        self.apply_theme()
+        self.apply_theme(mode)
 
     def apply_theme(self, mode=None):
         current_mode = (mode or ctk.get_appearance_mode()).lower()
@@ -673,7 +674,7 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
                     speed = ((sent - offset) / 1e6) / elapsed
                     self.after(0, self.update_ui_progress, pct, f"Speed: {speed:.2f} MB/s")
 
-                if not self.cancel_transfer_flag.is_set() and not self.shutdown_flag.is_set():
+                if not self.cancel_transfer_flag.is_set() and not self.pause_transfer_flag.is_set() and not self.shutdown_flag.is_set():
                     final_chunk = enc.finalize()
                     if final_chunk:
                         stream_mac.update(final_chunk)
@@ -690,6 +691,10 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
                             self.after(0, self.log_warn, f"Transfer sent but ACK was unexpected: {ack!r}")
                     except socket.timeout:
                         self.after(0, self.log_warn, "Transfer sent but no ACK received before timeout.")
+                elif self.pause_transfer_flag.is_set():
+                    self.after(0, self.log_info, "Transfer paused. Partial file saved for resumption.")
+                elif self.cancel_transfer_flag.is_set():
+                    self.after(0, self.log_error, "Transfer cancelled. Discarding partial data.")
 
         except socket.timeout:
             if not self.shutdown_flag.is_set():
@@ -702,11 +707,12 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
             self.after(0, self.update_ui_progress, 0, "Speed: 0.00 MB/s")
             self.after(0, lambda: self.pause_btn.configure(state="disabled"))
             self.after(0, lambda: self.cancel_btn.configure(state="disabled"))
-            if self.cancel_transfer_flag.is_set() and is_f == "1" and os.path.exists(send_path):
-                try:
-                    os.remove(send_path)
-                except OSError:
-                    pass
+            if (self.cancel_transfer_flag.is_set() or self.pause_transfer_flag.is_set()) and is_f == "1" and os.path.exists(send_path):
+                if self.cancel_transfer_flag.is_set():
+                    try:
+                        os.remove(send_path)
+                    except OSError:
+                        pass
 
 if __name__ == "__main__":
     app = MyFileSharingApp()
