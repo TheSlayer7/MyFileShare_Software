@@ -1,0 +1,6 @@
+cryptography>=42.0.0
+customtkinter>=5.2.0
+tkinterdnd2>=0.3.0
+pystray>=0.19.5
+Pillow>=10.0.0
+plyer>=2.1.0
