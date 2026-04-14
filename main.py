@@ -56,6 +56,7 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
         
         self.transfer_approved = False
         self.prompt_event = threading.Event()
+        self.approval_lock = threading.Lock()
 
         self.setup_ui()
         self.protocol("WM_DELETE_WINDOW", self.hide_window)
@@ -362,6 +363,15 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
         self.transfer_approved = mb
         self.prompt_event.set()
 
+    def request_transfer_approval(self, title, message):
+        # Serialize prompts so concurrent incoming transfers do not race shared state.
+        with self.approval_lock:
+            self.prompt_event.clear()
+            self.transfer_approved = False
+            self.after(0, self.ask_approval, title, message)
+            self.prompt_event.wait()
+            return self.transfer_approved
+
     def handle_client(self, conn, addr):
         ip = addr[0]
         try:
@@ -369,7 +379,7 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
             if ip in self.failed_attempts:
                 attempts, lockout_time = self.failed_attempts[ip]
                 if time.time() < lockout_time:
-                    conn.sendall(b"REJECT|LOCKED")
+                    conn.sendall(b"AUTH_LOCKED")
                     self.after(0, self.log_warn, f"Rejected connection from {ip}: temporary lockout active.")
                     conn.close()
                     return
@@ -399,7 +409,18 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
                 conn.sendall(b"REJECT|META")
                 self.after(0, self.log_warn, f"Rejected malformed transfer metadata from {ip}.")
                 return
-            f_name, f_size, f_hash, is_f, s_name = meta[0], int(meta[1]), meta[2], meta[3], meta[4]
+            f_name, f_size_raw, f_hash, is_f, s_name = meta[0], meta[1], meta[2], meta[3], meta[4]
+            try:
+                f_size = int(f_size_raw)
+            except ValueError:
+                conn.sendall(b"REJECT|META")
+                self.after(0, self.log_warn, f"Rejected invalid file size from {ip}: {f_size_raw}")
+                return
+
+            if f_size < 0 or len(f_hash) != 64:
+                conn.sendall(b"REJECT|META")
+                self.after(0, self.log_warn, f"Rejected invalid metadata values from {ip}.")
+                return
 
             part_file = os.path.join(self.save_dir, f"{f_hash}.part")
             offset = 0
@@ -407,14 +428,16 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
             if os.path.exists(part_file):
                 offset = os.path.getsize(part_file)
                 if offset < f_size:
-                    self.prompt_event.clear()
-                    self.after(0, self.ask_approval, "Resume Transfer?", f"Resume receiving '{f_name}' from {s_name}? ({(offset/1e6):.1f}/{(f_size/1e6):.1f} MB already done)")
-                    self.prompt_event.wait()
+                    self.transfer_approved = self.request_transfer_approval(
+                        "Resume Transfer?",
+                        f"Resume receiving '{f_name}' from {s_name}? ({(offset/1e6):.1f}/{(f_size/1e6):.1f} MB already done)"
+                    )
                 else: offset = 0 
             else:
-                self.prompt_event.clear()
-                self.after(0, self.ask_approval, "Accept File?", f"Accept '{f_name}' ({(f_size/1e6):.2f} MB) from {s_name}?")
-                self.prompt_event.wait() 
+                self.transfer_approved = self.request_transfer_approval(
+                    "Accept File?",
+                    f"Accept '{f_name}' ({(f_size/1e6):.2f} MB) from {s_name}?"
+                )
 
             if not self.transfer_approved:
                 conn.sendall(b"REJECT|DECLINED")
@@ -462,10 +485,8 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
             sender_mac = self.recv_exact(conn, 32)
             if not sender_mac or not hmac.compare_digest(stream_mac.digest(), sender_mac):
                 self.after(0, self.log_error, "SECURITY ALERT: Stream MAC mismatch. Transfer dropped as unsafe.")
+                conn.sendall(b"FAIL")
                 return
-            
-            # Tell the sender we successfully received and verified the MAC
-            conn.sendall(b"DONE")
 
             if self.calculate_hash(part_file) == f_hash:
                 save_base, save_ext = os.path.splitext(f_name)
@@ -481,11 +502,18 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
                     fold = final_save_name.replace(".zip", "")
                     shutil.unpack_archive(final_save_name, fold)
                     os.remove(final_save_name)
+                
+                conn.sendall(b"DONE")
                     
                 self.after(0, self.log_info, f"Transfer completed successfully: {f_name}")
                 self.after(0, self.notify, "Success", f"Received {f_name}")
             else:
                 self.after(0, self.log_error, f"Hash mismatch for {f_name}. File rejected as corrupt.")
+                conn.sendall(b"FAIL")
+                try:
+                    os.remove(part_file)
+                except OSError:
+                    pass
 
         except socket.timeout:
             if not self.shutdown_flag.is_set():
@@ -558,6 +586,15 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
             client.connect((target_ip, TCP_PORT))
             
             salt = client.recv(16)
+            if not salt:
+                self.after(0, self.log_error, "Connection closed before key exchange.")
+                return
+            if salt in (b"AUTH_LOCKED", b"AUTH_FAIL"):
+                self.after(0, self.log_warn, "Target is temporarily locked after failed token attempts.")
+                return
+            if len(salt) != 16:
+                self.after(0, self.log_error, f"Invalid salt length from target ({len(salt)} bytes).")
+                return
             kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=480000)
             key = kdf.derive(target_pin.encode())
             
@@ -567,6 +604,9 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
             if auth_resp == b"AUTH_FAIL":
                 self.after(0, self.log_error, "Authentication failed: incorrect token.")
                 client.close()
+                return
+            elif auth_resp == b"AUTH_LOCKED":
+                self.after(0, self.log_warn, "Target is temporarily locked after failed token attempts.")
                 return
             elif auth_resp != b"AUTH_OK":
                 self.after(0, self.log_error, f"Unexpected auth response from target: {auth_resp!r}")
@@ -625,9 +665,11 @@ class MyFileSharingApp(ctk.CTk, TkinterDnD.DnDWrapper):
                     client.sendall(stream_mac.digest())
                     
                     try:
-                        ack = self.recv_exact(client, 4)
+                        ack = client.recv(4)
                         if ack == b"DONE":
                             self.after(0, self.log_info, "Sender confirmed delivery and integrity check passed.")
+                        elif ack == b"FAIL":
+                            self.after(0, self.log_error, "Receiver rejected transfer after integrity/hash verification.")
                         else:
                             self.after(0, self.log_warn, f"Transfer sent but ACK was unexpected: {ack!r}")
                     except socket.timeout:
