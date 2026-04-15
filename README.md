@@ -389,12 +389,12 @@ UDP broadcast reaches sender, but TCP connection from sender to receiver cannot 
 
 | Library | Purpose | License |
 |---------|---------|---------|
-| customtkinter | GUI framework with modern styling | MIT |
-| tkinterdnd2 | Drag-and-drop file support | MIT |
-| cryptography (PyCA) | AES-256-CTR, PBKDF2, SHA-256, HMAC | Apache 2.0 / BSD |
-| pystray | System tray integration | LGPLv3 |
-| plyer | Cross-platform notifications | MIT |
-| Pillow | Image rendering for tray icon | HPND |
+| customtkinter | GUI framework with modern styling | [MIT](https://spdx.org/licenses/MIT.html) |
+| tkinterdnd2 | Drag-and-drop file support | [MIT](https://spdx.org/licenses/MIT.html) |
+| cryptography (PyCA) | AES-256-CTR, PBKDF2, SHA-256, HMAC | [Apache-2.0](https://spdx.org/licenses/Apache-2.0.html) / [BSD-3-Clause](https://spdx.org/licenses/BSD-3-Clause.html) |
+| pystray | System tray integration | [LGPL-3.0-only](https://spdx.org/licenses/LGPL-3.0-only.html) |
+| plyer | Cross-platform notifications | [MIT](https://spdx.org/licenses/MIT.html) |
+| Pillow | Image rendering for tray icon | [HPND](https://spdx.org/licenses/HPND.html) |
 
 All dependencies are permissive open-source licenses compatible with MIT.
 
@@ -421,7 +421,7 @@ Large files (>1 GB) are common. Transient network issues are common. Resume-from
 
 ## License
 
-MIT License. See LICENSE file for full text.
+MIT License. See [LICENSE](LICENSE) for full text.
 
 ---
 
