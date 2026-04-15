@@ -398,7 +398,7 @@ UDP broadcast reaches sender, but TCP connection from sender to receiver cannot 
 
 All dependencies are permissive open-source licenses compatible with MIT.
 
-For third-party license compliance details (including full Apache-2.0 and BSD-3-Clause text for `cryptography`), see [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt).
+For third-party license compliance details (including full Apache-2.0 and BSD-3-Clause text for `cryptography`), see [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
 ---
 
@@ -425,7 +425,7 @@ Large files (>1 GB) are common. Transient network issues are common. Resume-from
 
 MIT License. See [LICENSE](LICENSE) for full text.
 
-Third-party dependency license notices are included in [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt).
+Third-party dependency license notices are included in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
 ---
 
